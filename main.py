@@ -20,6 +20,7 @@ def filter_by_channel(channel):
     new_json = {
         'channel': channel,
         'fetched': ts,
+        'source': 'Vidio',
         'programme': []
     }
     for e in list:
