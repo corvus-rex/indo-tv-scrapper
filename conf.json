@@ -1,0 +1,5 @@
+{
+    "query": ["KompasTV.id"],
+    "persistent": true,
+    "timer": 720
+}
