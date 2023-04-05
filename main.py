@@ -111,26 +111,25 @@ def fetch_vidio_epg(ch_name):
     with open(os.path.join(full_path, file_name), 'w') as fp:
         json.dump(new_json, fp, indent=3)
 
-def fetch_all(query, min):
+def fetch_all(query, min, source):
     for e in query:
-        filter_by_channel(e)
+        if source == 'IPTV':
+            filter_by_channel(e)
+        elif source == 'Vidio':
+            fetch_vidio_epg(e)
+        
     print("Awaiting for next fetch at " +(datetime.now() + timedelta(minutes=min)).strftime("%d-%m-%Y %H:%M"))
 
 if __name__ == "__main__":
     # Load Conf files
     conf = json.load(open('conf.json'))
 
-    scrape = False
-    fetch = {'vidio': True}
-
-    if fetch['vidio']:
-        for e in conf['query']:
-            fetch_vidio_epg(e)
+    scrape = True
 
     if scrape:
-        fetch_all(conf['query'], conf['timer'])
+        fetch_all(conf['query'], conf['timer'], conf['source'])
 
-        schedule.every(conf['timer']).minutes.do(fetch_all, conf['query'], conf['timer'])
+        schedule.every(conf['timer']).minutes.do(fetch_all, conf['query'], conf['timer'], conf['source'])
         if conf['persistent']:
             while(True):
                 schedule.run_pending()
