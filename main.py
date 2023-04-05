@@ -20,7 +20,7 @@ def filter_by_channel(channel):
     new_json = {
         'channel': channel,
         'fetched': ts,
-        'source': 'Vidio',
+        'source': 'IPTV',
         'programme': []
     }
     for e in list:
@@ -41,7 +41,7 @@ def filter_by_channel(channel):
     with open(os.path.join(full_path, file_name), 'w') as fp:
         json.dump(new_json, fp, indent=3)
 
-def fetch_vidio_epg():
+def fetch_vidio_epg(ch_name):
     sess = requests.session()
     header = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
@@ -63,11 +63,53 @@ def fetch_vidio_epg():
     # Append the API Key to header
     header['X-API-KEY'] = response.json()['api_key']
 
-    # Perform GET REQUEST for the EPG schedule
-    req = requests.Request("GET", 'https://api.vidio.com/livestreamings/204/schedules?filter[date]=2023-04-05', headers=header)
+    # Query Channel ID
+    req = requests.Request("GET", "https://api.vidio.com/livestreamings?stream_type=tv_stream", headers=header)
     prepped = req.prepare()
     response = sess.send(prepped)
-    print(response.content)
+    channel_list = response.json()['data']
+    id = ''
+    for ch in channel_list:
+        if ch_name in ch['attributes']['title']:
+            id = ch['id']
+            break
+    if id == '':
+        print('No channel name found')
+        return
+
+    # Perform GET REQUEST for the EPG schedule
+    print("Channel ID ", id)
+    req = requests.Request("GET", 'https://api.vidio.com/livestreamings/' + id + '/schedules?filter[date]=2023-04-05', headers=header)
+    prepped = req.prepare()
+    response = sess.send(prepped)
+    print(response.json())
+
+    # Write the EPG into JSON file
+    ts = time.time()
+    new_json = {
+        'channel': ch_name,
+        'fetched': ts,
+        'source': 'Vidio API',
+        'programme': []
+    }
+    for e in response.json()['data']:
+        new_json['programme'].append({
+            'title': e['attributes']['title'],
+            'start': e['attributes']['start_time'],
+            'stop': e['attributes']['end_time'],
+            'description': e['attributes']['description']
+        })
+
+    dir_name = ch_name.replace(".", "_").replace("/", "_").replace(" ", "-")
+    today = datetime.now()
+    d1 = today.strftime("%d-%m-%Y-%H-%M")
+    file_name = dir_name + '' + d1 + ".json"
+
+    full_path = os.path.join("./results", dir_name)
+    Path(full_path).mkdir(parents=True, exist_ok=True)
+
+    with open(os.path.join(full_path, file_name), 'w') as fp:
+        json.dump(new_json, fp, indent=3)
 
 def fetch_all(query, min):
     for e in query:
@@ -82,7 +124,8 @@ if __name__ == "__main__":
     fetch = {'vidio': True}
 
     if fetch['vidio']:
-        fetch_vidio_epg()
+        for e in conf['query']:
+            fetch_vidio_epg(e)
 
     if scrape:
         fetch_all(conf['query'], conf['timer'])
