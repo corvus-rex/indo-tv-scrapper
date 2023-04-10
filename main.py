@@ -94,7 +94,8 @@ def fetch_vidio_epg(ch_name):
 
     # Perform GET REQUEST for the EPG schedule
     print("Channel ID ", id)
-    req = requests.Request("GET", 'https://api.vidio.com/livestreamings/' + id + '/schedules?filter[date]=2023-04-05', headers=header)
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    req = requests.Request("GET", 'https://api.vidio.com/livestreamings/' + id + '/schedules?filter[date]='+date_str, headers=header)
     prepped = req.prepare()
     response = sess.send(prepped)
 
