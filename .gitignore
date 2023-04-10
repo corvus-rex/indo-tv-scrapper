@@ -10,6 +10,9 @@ __pycache__/
 *.json
 !conf.json
 
+# ENV files
+.env
+
 # Distribution / packaging
 .Python
 build/

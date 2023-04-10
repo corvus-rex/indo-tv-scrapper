@@ -6,7 +6,21 @@ from datetime import datetime, timedelta
 from pathlib import Path    
 import json
 import schedule
+from dotenv import load_dotenv
 
+
+def get_variable(name: str, default_value: bool | None = None) -> bool:
+    true_ = ('true', '1', 't')  # Add more entries if you want, like: `y`, `yes`, `on`, ...
+    false_ = ('false', '0', 'f')  # Add more entries if you want, like: `n`, `no`, `off`, ...
+    value: str | None = os.getenv(name, None)
+    if value is None:
+        if default_value is None:
+            raise ValueError(f'Variable `{name}` not set!')
+        else:
+            value = str(default_value)
+    if value.lower() not in true_ + false_:
+        raise ValueError(f'Invalid value `{value}` for variable `{name}`')
+    return value in true_
 
 def filter_by_channel(channel):
     url = "https://iptv-org.github.io/epg/guides/id/vidio.com.xml"
@@ -30,12 +44,12 @@ def filter_by_channel(channel):
             'title': e['title']['#text']
         })
 
-    dir_name = channel.replace(".", "_").replace("/", "_")
+    dir_name = channel.replace(".", "-").replace("/", "-")
     today = datetime.now()
     d1 = today.strftime("%d-%m-%Y-%H-%M")
     file_name = dir_name + d1 + ".json"
 
-    full_path = os.path.join("./results", dir_name)
+    full_path = os.path.join(os.getenv("WRITE_DIR"), dir_name)
     Path(full_path).mkdir(parents=True, exist_ok=True)
 
     with open(os.path.join(full_path, file_name), 'w') as fp:
@@ -67,6 +81,7 @@ def fetch_vidio_epg(ch_name):
     req = requests.Request("GET", "https://api.vidio.com/livestreamings?stream_type=tv_stream", headers=header)
     prepped = req.prepare()
     response = sess.send(prepped)
+    print(response)
     channel_list = response.json()['data']
     id = ''
     for ch in channel_list:
@@ -82,7 +97,6 @@ def fetch_vidio_epg(ch_name):
     req = requests.Request("GET", 'https://api.vidio.com/livestreamings/' + id + '/schedules?filter[date]=2023-04-05', headers=header)
     prepped = req.prepare()
     response = sess.send(prepped)
-    print(response.json())
 
     # Write the EPG into JSON file
     ts = time.time()
@@ -100,15 +114,18 @@ def fetch_vidio_epg(ch_name):
             'description': e['attributes']['description']
         })
 
-    dir_name = ch_name.replace(".", "_").replace("/", "_").replace(" ", "-")
+    dir_name = ch_name.replace(".", "-").replace("/", "-").replace(" ", "-")
     today = datetime.now()
     d1 = today.strftime("%d-%m-%Y-%H-%M")
-    file_name = dir_name + '' + d1 + ".json"
+    file_name = "Vidio_" + dir_name + '_' + d1 + ".json"
 
-    full_path = os.path.join("./results", dir_name)
+    full_path = os.path.join(os.getenv("WRITE_DIR"), dir_name)
     Path(full_path).mkdir(parents=True, exist_ok=True)
 
     with open(os.path.join(full_path, file_name), 'w') as fp:
+        json.dump(new_json, fp, indent=3)
+
+    with open(os.path.join(full_path, "today.json"), 'w') as fp:
         json.dump(new_json, fp, indent=3)
 
 def fetch_all(query, min, source):
@@ -117,20 +134,22 @@ def fetch_all(query, min, source):
             filter_by_channel(e)
         elif source == 'Vidio':
             fetch_vidio_epg(e)
-        
+        time.sleep(3)
     print("Awaiting for next fetch at " +(datetime.now() + timedelta(minutes=min)).strftime("%d-%m-%Y %H:%M"))
 
 if __name__ == "__main__":
+    load_dotenv()
     # Load Conf files
-    conf = json.load(open('conf.json'))
-
     scrape = True
 
-    if scrape:
-        fetch_all(conf['query'], conf['timer'], conf['source'])
+    query = os.getenv('QUERY').split(", ")
+    print(type(int(os.getenv('TIMER'))))
+    print(int(os.getenv('TIMER')))
 
-        schedule.every(conf['timer']).minutes.do(fetch_all, conf['query'], conf['timer'], conf['source'])
-        if conf['persistent']:
+    if scrape:
+        fetch_all(query, int(os.getenv('TIMER')), os.getenv('SOURCE'))
+        schedule.every(int(os.getenv('TIMER'))).minutes.do(fetch_all, query, int(os.getenv('TIMER')), os.getenv('SOURCE'))
+        if get_variable('PERSISTENT'):
             while(True):
                 schedule.run_pending()
                 time.sleep(1)
