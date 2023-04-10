@@ -129,14 +129,14 @@ def fetch_vidio_epg(ch_name):
     with open(os.path.join(full_path, "today.json"), 'w') as fp:
         json.dump(new_json, fp, indent=3)
 
-def fetch_all(query, min, source):
+def fetch_all(query,source):
     for e in query:
         if source == 'IPTV':
             filter_by_channel(e)
         elif source == 'Vidio':
             fetch_vidio_epg(e)
         time.sleep(3)
-    print("Awaiting for next fetch at " +(datetime.now() + timedelta(minutes=min)).strftime("%d-%m-%Y %H:%M"))
+    print("Awaiting for next fetch at " +(datetime.now() + timedelta(days=1)).strftime("%d-%m-%Y ")+os.getenv("START"))
 
 if __name__ == "__main__":
     load_dotenv()
@@ -144,12 +144,10 @@ if __name__ == "__main__":
     scrape = True
 
     query = os.getenv('QUERY').split(", ")
-    print(type(int(os.getenv('TIMER'))))
-    print(int(os.getenv('TIMER')))
 
-    if scrape:
-        fetch_all(query, int(os.getenv('TIMER')), os.getenv('SOURCE'))
-        schedule.every(int(os.getenv('TIMER'))).minutes.do(fetch_all, query, int(os.getenv('TIMER')), os.getenv('SOURCE'))
+    if scrape:    
+        print("Awaiting for next fetch at " +datetime.now().strftime("%d-%m-%Y ")+os.getenv("START"))
+        schedule.every().day.at(os.getenv("START")).do(fetch_all, query, os.getenv('SOURCE'))
         if get_variable('PERSISTENT'):
             while(True):
                 schedule.run_pending()
